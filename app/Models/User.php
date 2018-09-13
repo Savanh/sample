@@ -61,5 +61,51 @@ class User extends Authenticatable
         return $this->statuses()
             ->orderBy('created_at','desc');
     }
+    //多对多 用户 $user->followers()获取用户列表
+    //belongsToMany 方法的第三个参数 user_id 是定义在关联中的模型外键名，而第四个参数 follower_id 则是要合并的模型外键名。
+
+    public function followers(){
+        return $this->belongsToMany(User::class,'followers','user_id','follower_id');
+    }
+    //多对多 粉丝 $user->followings()获取粉丝列表
+
+    public function followings(){
+        return $this->belongsToMany(User::class,'followers','follower_id','user_id');
+    }
+    //关注
+    public function follow($user_ids){
+        if(!is_array($user_ids)){
+            $user_ids = compact('user_ids');
+        }
+        $this->followings()->sync($user_ids,false);
+    }
+    //取消关注
+
+    public function unfollow($user_ids){
+        if(!is_array($user_ids)){
+            $user_ids = compact('user_ids');
+        }
+        $this->followings()->detach($user_ids);
+    }
+/*
+*因为contains方法是Collection类的一个方法，$this->followings返回的是一个Collection类的实例，
+*也就是一个集合，但是$this->followings()返回的是一个Relations，没有contains方法，所以不能加括号。
+*
+*这是 Laravel Eloquent 提供的「动态属性」属性功能，我们可以像在访问模型中定义的属性一样，来访问所有的关联方法。
+*/
+    //判断是否要已经关注
+    //$this->followings 返回的是一个collection对象
+    public function isFollowing($user_id){
+        return $this->followings->contains($user_id);
+    }
+
+    public function feed(){
+        $user_ids = Auth:user()->followings->pluck('id')->toArray();
+        array_push($user_ids,Auth::user()->id);
+
+        return Status::whereIn('user_id',$user_ids)
+            ->with('user')
+            ->orderBy('created_at','desc');
+    }
 
 }
